@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import FileUploader from './FileUploader';
 import FileItem from './FileItem';
 import PDFSettingsModal, { PDFSettings } from './PDFSettingsModal';
@@ -231,7 +231,7 @@ export default function PDFMerger() {
       const pdfBytes = await pdfDoc.save();
       
       // Create a blob and download
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -253,12 +253,12 @@ export default function PDFMerger() {
       {files.length > 0 && (
         <>
           <div className="mb-4 flex justify-between items-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {files.length} file{files.length !== 1 ? 's' : ''} ready to merge
             </p>
             <button
               onClick={handleClearAll}
-              className="text-sm text-red-600 hover:text-red-700 transition-colors"
+              className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
             >
               Clear All
             </button>
@@ -289,7 +289,7 @@ export default function PDFMerger() {
           <button
             onClick={handleOpenSettings}
             disabled={isGenerating}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
           >
             {isGenerating ? 'Generating PDF...' : 'Download Merged PDF'}
           </button>

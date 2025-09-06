@@ -18,7 +18,7 @@ interface PDFSettingsModalProps {
 }
 
 const defaultSettings: PDFSettings = {
-  pageSize: 'fit',
+  pageSize: 'a4',
   margin: 'none'
 };
 
@@ -48,12 +48,12 @@ export default function PDFSettingsModal({
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       onClick={handleOverlayClick}
     >
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">PDF Settings</h2>
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">PDF Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -64,25 +64,11 @@ export default function PDFSettingsModal({
         <div className="space-y-6">
           {/* Page Size Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Page Size
             </label>
             <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="pageSize"
-                  value="fit"
-                  checked={settings.pageSize === 'fit'}
-                  onChange={(e) => setSettings(prev => ({ ...prev, pageSize: e.target.value as PageSize }))}
-                  className="mr-3 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <div className="font-medium">Fit to Image</div>
-                  <div className="text-sm text-gray-500">Same page size as image</div>
-                </div>
-              </label>
-              <label className="flex items-center">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="radio"
                   name="pageSize"
@@ -92,8 +78,22 @@ export default function PDFSettingsModal({
                   className="mr-3 text-blue-600 focus:ring-blue-500"
                 />
                 <div>
-                  <div className="font-medium">A4</div>
-                  <div className="text-sm text-gray-500">Standard A4 page size</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">A4</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Standard A4 page size</div>
+                </div>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="pageSize"
+                  value="fit"
+                  checked={settings.pageSize === 'fit'}
+                  onChange={(e) => setSettings(prev => ({ ...prev, pageSize: e.target.value as PageSize }))}
+                  className="mr-3 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">Fit to Image</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Same page size as image</div>
                 </div>
               </label>
             </div>
@@ -101,11 +101,11 @@ export default function PDFSettingsModal({
 
           {/* Margin Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Margin
             </label>
             <div className="space-y-2">
-              <label className="flex items-center">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="radio"
                   name="margin"
@@ -114,9 +114,9 @@ export default function PDFSettingsModal({
                   onChange={(e) => setSettings(prev => ({ ...prev, margin: e.target.value as Margin }))}
                   className="mr-3 text-blue-600 focus:ring-blue-500"
                 />
-                <span>No Margin</span>
+                <span className="text-gray-900 dark:text-gray-100">No Margin</span>
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="radio"
                   name="margin"
@@ -125,9 +125,9 @@ export default function PDFSettingsModal({
                   onChange={(e) => setSettings(prev => ({ ...prev, margin: e.target.value as Margin }))}
                   className="mr-3 text-blue-600 focus:ring-blue-500"
                 />
-                <span>Small Margin</span>
+                <span className="text-gray-900 dark:text-gray-100">Small Margin</span>
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="radio"
                   name="margin"
@@ -136,7 +136,7 @@ export default function PDFSettingsModal({
                   onChange={(e) => setSettings(prev => ({ ...prev, margin: e.target.value as Margin }))}
                   className="mr-3 text-blue-600 focus:ring-blue-500"
                 />
-                <span>Big Margin</span>
+                <span className="text-gray-900 dark:text-gray-100">Big Margin</span>
               </label>
             </div>
           </div>
@@ -146,7 +146,7 @@ export default function PDFSettingsModal({
         <div className="flex justify-end space-x-3 mt-8">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
           >
             Cancel
           </button>

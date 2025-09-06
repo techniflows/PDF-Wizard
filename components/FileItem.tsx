@@ -17,10 +17,8 @@ interface FileItemProps {
 export default function FileItem({ 
   file, 
   onRemove, 
-  onUngroup,
-  isFirstInGroup = false,
-  isLastInGroup = false
-}: FileItemProps) {
+  onUngroup
+}: Omit<FileItemProps, 'isFirstInGroup' | 'isLastInGroup'>) {
   const {
     attributes,
     listeners,
@@ -48,15 +46,15 @@ export default function FileItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex items-center gap-4 ${
+      className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-4 ${
         isDragging ? 'shadow-lg' : ''
-      } ${isPdfPage ? 'ml-6 border-l-4 border-l-blue-300' : ''}`}
+      } ${isPdfPage ? 'ml-6 border-l-4 border-l-blue-300 dark:border-l-blue-400' : ''}`}
     >
       {/* Drag handle */}
       <div
         {...attributes}
         {...listeners}
-        className="cursor-move text-gray-400 hover:text-gray-600"
+        className="cursor-move text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"
       >
         <svg
           className="w-6 h-6"
@@ -74,7 +72,7 @@ export default function FileItem({
       </div>
 
       {/* File preview */}
-      <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
+      <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
         {file.type.startsWith('image/') || (file.type === 'application/pdf' && file.thumbnailUrl) ? (
           <ZoomableThumbnail
             src={file.thumbnailUrl || file.url}
@@ -94,15 +92,15 @@ export default function FileItem({
 
       {/* File info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 truncate">
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           {file.name}
         </p>
         <div className="flex items-center gap-2">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {file.type.replace('image/', '').replace('application/', '').toUpperCase()}
           </p>
           {isPdfPage && file.originalFileName && (
-            <span className="text-xs text-blue-600">
+            <span className="text-xs text-blue-600 dark:text-blue-400">
               from {file.originalFileName}
             </span>
           )}
@@ -113,7 +111,7 @@ export default function FileItem({
       {isPdfPage && onUngroup && (
         <button
           onClick={handleUngroup}
-          className="text-gray-400 hover:text-blue-600 transition-colors mr-2"
+          className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mr-2"
           title="Ungroup from PDF"
         >
           <svg
@@ -135,7 +133,7 @@ export default function FileItem({
       {/* Remove button */}
       <button
         onClick={() => onRemove(file.id)}
-        className="text-gray-400 hover:text-red-600 transition-colors"
+        className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
         aria-label="Remove file"
       >
         <svg

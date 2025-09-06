@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDF Wizard - 오프라인</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 500px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+    
+    .icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.8;
+    }
+    
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    
+    p {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin-bottom: 20px;
+      opacity: 0.9;
+    }
+    
+    .features {
+      text-align: left;
+      margin: 20px 0;
+    }
+    
+    .feature {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+      font-size: 0.95rem;
+    }
+    
+    .feature-icon {
+      margin-right: 10px;
+    }
+    
+    .retry-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 20px;
+    }
+    
+    .retry-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: translateY(-2px);
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: linear-gradient(135deg, #2D3748 0%, #4A5568 100%);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📱</div>
+    <h1>PDF Wizard</h1>
+    <p>인터넷 연결이 없어도 PDF Wizard를 사용할 수 있습니다!</p>
+    
+    <div class="features">
+      <div class="feature">
+        <span class="feature-icon">✅</span>
+        <span>PDF 병합 및 분할</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">✅</span>
+        <span>이미지를 PDF로 변환</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">✅</span>
+        <span>페이지 재정렬</span>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">✅</span>
+        <span>100% 로컬 처리</span>
+      </div>
+    </div>
+    
+    <p style="font-size: 0.9rem; opacity: 0.7;">
+      모든 기능이 오프라인에서 완전히 작동합니다.<br>
+      파일은 절대 서버로 전송되지 않습니다.
+    </p>
+    
+    <button class="retry-btn" onclick="window.location.reload()">
+      연결 다시 시도
+    </button>
+  </div>
+
+  <script>
+    // Check for network connectivity
+    window.addEventListener('online', () => {
+      window.location.reload();
+    });
+    
+    // Auto-retry when back online
+    if (navigator.onLine) {
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

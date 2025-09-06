@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback } from 'react';
+import Image from 'next/image';
 
 interface ZoomableThumbnailProps {
   src: string;
@@ -85,9 +86,11 @@ export default function ZoomableThumbnail({ src, alt, className = '' }: Zoomable
         onMouseLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}
       >
-        <img
+        <Image
           src={src}
           alt={alt}
+          width={200}
+          height={200}
           className="w-full h-full object-cover rounded"
         />
       </div>
@@ -104,9 +107,11 @@ export default function ZoomableThumbnail({ src, alt, className = '' }: Zoomable
             className="relative flex items-center justify-center image-container"
             onMouseEnter={handleMouseEnter}
           >
-            <img
+            <Image
               src={src}
               alt={alt}
+              width={1200}
+              height={800}
               className="object-contain shadow-2xl rounded-lg border-4 border-white"
               style={{
                 width: '80vw',
