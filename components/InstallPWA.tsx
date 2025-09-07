@@ -39,8 +39,9 @@ export default function InstallPWA() {
       e.preventDefault();
       // Stash the event so it can be triggered later
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Don't automatically show, wait for user engagement
-      console.log('Install prompt deferred, waiting for user engagement');
+      // Show install button after deferring the prompt
+      setShowInstallButton(true);
+      console.log('Install prompt deferred, showing install button');
     };
 
     const handleAppInstalled = () => {
@@ -90,16 +91,22 @@ export default function InstallPWA() {
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
 
-    // Show the install prompt
-    deferredPrompt.prompt();
+    try {
+      // Show the install prompt
+      await deferredPrompt.prompt();
 
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
+      // Wait for the user to respond to the prompt
+      const { outcome } = await deferredPrompt.userChoice;
 
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-    } else {
-      console.log('User dismissed the install prompt');
+      if (outcome === 'accepted') {
+        console.log('User accepted the install prompt');
+      } else {
+        console.log('User dismissed the install prompt');
+        // Store dismissal to not show again for some time
+        localStorage.setItem('pwa-install-dismissed', Date.now().toString());
+      }
+    } catch (error) {
+      console.error('Error showing install prompt:', error);
     }
 
     // Clear the deferredPrompt
