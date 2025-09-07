@@ -11,30 +11,46 @@ export default function Home() {
       <OfflineIndicator />
       <SystemTheme />
       <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-3 text-gray-800 dark:text-gray-100">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2 text-gray-800 dark:text-gray-100">
             PDF Wizard 🪄
           </h1>
-          <p className="text-xl font-semibold text-blue-600 dark:text-blue-400 mb-4">
+          <p className="text-lg sm:text-xl font-semibold text-blue-600 dark:text-blue-400 mb-4">
             Your Swiss Army Knife for PDFs & Images
           </p>
-          <div className="max-w-3xl mx-auto space-y-2">
-            <p className="text-gray-700 dark:text-gray-300">
-              <span className="font-medium">📑 Split PDFs</span> into individual pages •
-              <span className="font-medium"> 🖼️ Convert images</span> to PDF •
-              <span className="font-medium"> 🔀 Rearrange</span> pages with drag & drop
-            </p>
-            <p className="text-gray-700 dark:text-gray-300">
-              <span className="font-medium">🎯 Merge</span> multiple PDFs & images into one •
-              <span className="font-medium"> ✨ Mix & match</span> any combination
-            </p>
-            <div className="mt-4 inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-4 py-2 rounded-full">
-              <span className="text-green-600 dark:text-green-400 font-semibold">🔒 100% Private</span>
-              <span className="text-green-700 dark:text-green-300">- Everything happens on YOUR device. No uploads, no servers!</span>
+          
+          {/* Privacy badge - compact version */}
+          <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
+            <span className="text-green-600 dark:text-green-400 font-semibold text-sm">🔒 100% Private</span>
+          </div>
+        </div>
+        
+        <PDFMerger />
+        
+        {/* Feature cards moved below upload area */}
+        <div className="max-w-4xl mx-auto mt-12">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 text-center mb-6">
+            What you can do with PDF Wizard
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm sm:text-base">
+            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-4">
+              <span className="font-semibold text-gray-800 dark:text-gray-200">📑 Split PDFs</span>
+              <div className="text-gray-600 dark:text-gray-400 mt-1">Extract individual pages</div>
+            </div>
+            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-4">
+              <span className="font-semibold text-gray-800 dark:text-gray-200">🖼️ Convert Images</span>
+              <div className="text-gray-600 dark:text-gray-400 mt-1">Turn images into PDFs</div>
+            </div>
+            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-4">
+              <span className="font-semibold text-gray-800 dark:text-gray-200">🔀 Rearrange</span>
+              <div className="text-gray-600 dark:text-gray-400 mt-1">Drag & drop pages</div>
+            </div>
+            <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-3 sm:p-4">
+              <span className="font-semibold text-gray-800 dark:text-gray-200">🎯 Merge Files</span>
+              <div className="text-gray-600 dark:text-gray-400 mt-1">Combine PDFs & images</div>
             </div>
           </div>
         </div>
-        <PDFMerger />
       </div>
       <PWAInstall />
     </main>

@@ -42,7 +42,11 @@ export default function PDFMerger() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before drag starts
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -59,7 +63,17 @@ export default function PDFMerger() {
     };
   }, [files]);
 
+  const handleDragStart = () => {
+    // Prevent page scroll during drag on mobile
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    // Re-enable page scroll after drag
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
+    
     const { active, over } = event;
     if (over && active.id !== over.id) {
       setFiles((items) => {
@@ -68,6 +82,12 @@ export default function PDFMerger() {
         return arrayMove(items, oldIndex, newIndex);
       });
     }
+  };
+
+  const handleDragCancel = () => {
+    // Re-enable page scroll if drag is cancelled
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
   };
 
   const handleFilesAdded = useCallback((newFiles: FileData[]) => {
@@ -267,7 +287,9 @@ export default function PDFMerger() {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
           >
             <SortableContext
               items={files.map(f => f.id)}
