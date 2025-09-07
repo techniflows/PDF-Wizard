@@ -46,9 +46,9 @@ export default function FileItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-4 ${
+      className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-6 ${
         isDragging ? 'shadow-lg' : ''
-      } ${isPdfPage ? 'ml-6 border-l-4 border-l-blue-300 dark:border-l-blue-400' : ''}`}
+      } ${isPdfPage ? 'border-l-4 border-l-blue-300 dark:border-l-blue-400' : ''}`}
     >
       {/* Drag handle */}
       <div
@@ -72,7 +72,7 @@ export default function FileItem({
       </div>
 
       {/* File preview */}
-      <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
+      <div className="w-12 h-10 sm:w-14 sm:h-14 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center flex-shrink-0">
         {file.type.startsWith('image/') || (file.type === 'application/pdf' && file.thumbnailUrl) ? (
           <ZoomableThumbnail
             src={file.thumbnailUrl || file.url}
@@ -107,28 +107,6 @@ export default function FileItem({
         </div>
       </div>
 
-      {/* Ungroup button for PDF pages */}
-      {isPdfPage && onUngroup && (
-        <button
-          onClick={handleUngroup}
-          className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mr-2"
-          title="Ungroup from PDF"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 9l6-6m0 6l-6-6"
-            />
-          </svg>
-        </button>
-      )}
 
       {/* Remove button */}
       <button

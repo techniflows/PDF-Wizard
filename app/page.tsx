@@ -4,10 +4,11 @@ import PDFMerger from '@/components/PDFMerger';
 import SystemTheme from '@/components/SystemTheme';
 import PWAInstall from '@/components/PWAInstall';
 import OfflineIndicator from '@/components/OfflineIndicator';
-import { useTranslations } from '@/utils/i18n';
+import { useTranslations, detectLanguage } from '@/utils/i18n';
 
 export default function Home() {
   const t = useTranslations();
+  const language = detectLanguage();
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -59,15 +60,14 @@ export default function Home() {
       {/* Footer */}
       <footer className="mt-16 py-6 border-t border-gray-200 dark:border-gray-700">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            © 2025{' '}
+          <p className="text-sm text-gray-600 dark:text-gray-400 font-bold">
             <a 
               href="https://www.techniflows.com" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
             >
-              techniflows
+              {t.footer.copyright}
             </a>
           </p>
         </div>

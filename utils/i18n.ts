@@ -81,6 +81,9 @@ export interface Translations {
   serviceWorker?: {
     updatePrompt: string;
   };
+  footer: {
+    copyright: string;
+  };
 }
 
 const translations: Record<Language, Translations> = {
@@ -163,7 +166,10 @@ const translations: Record<Language, Translations> = {
       tryAgain: '다시 시도해주세요'
     },
     serviceWorker: {
-      updatePrompt: '새로운 업데이트가 있습니다. 페이지를 새로고침하시겠습니까?'
+      updatePrompt: '새 버전이 사용 가능합니다. 업데이트하시겠습니까?'
+    },
+    footer: {
+      copyright: '© 2025 테크니플로우즈(techniflows)'
     }
   },
   en: {
@@ -246,6 +252,9 @@ const translations: Record<Language, Translations> = {
     },
     serviceWorker: {
       updatePrompt: 'New update available. Would you like to refresh the page?'
+    },
+    footer: {
+      copyright: '© 2025 techniflows'
     }
   }
 };
