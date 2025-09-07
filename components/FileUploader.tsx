@@ -3,6 +3,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { FileData } from './PDFMerger';
 import { extractPdfPages } from '@/utils/pdfUtils';
+import { useTranslations } from '@/utils/i18n';
 
 interface FileUploaderProps {
   onFilesAdded: (files: FileData[]) => void;
@@ -11,6 +12,7 @@ interface FileUploaderProps {
 export default function FileUploader({ onFilesAdded }: FileUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const t = useTranslations();
 
   const processFiles = useCallback(async (fileList: FileList) => {
     setIsProcessing(true);
@@ -60,7 +62,7 @@ export default function FileUploader({ onFilesAdded }: FileUploaderProps) {
         }
       } catch (error) {
         console.error(`Error processing file ${file.name}:`, error);
-        alert(`Error processing ${file.name}. Please try a different file.`);
+        alert(`${t.errors.processingFailed} ${file.name}. ${t.errors.tryAgain}`);
       }
     }
     
@@ -122,7 +124,7 @@ export default function FileUploader({ onFilesAdded }: FileUploaderProps) {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p className="text-lg font-medium text-gray-700 dark:text-gray-300 mt-4">Processing files...</p>
+          <p className="text-lg font-medium text-gray-700 dark:text-gray-300 mt-4">{t.upload.processing}</p>
         </div>
       ) : (
         <>
@@ -142,13 +144,13 @@ export default function FileUploader({ onFilesAdded }: FileUploaderProps) {
           </svg>
           
           <p className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Click to upload or drag and drop
+            {t.upload.dragDrop} <span className="text-blue-600 dark:text-blue-400">{t.upload.clickToSelect}</span>
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Supports: JPG, PNG, JPEG, BMP, HEIC, PDF
+            {t.upload.supportedFormats}
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-            All processing happens in your browser - no data is uploaded to any server
+            {t.privacyDescription}
           </p>
         </>
       )}

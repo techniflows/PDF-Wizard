@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from '@/utils/i18n';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -14,6 +15,7 @@ export default function PWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+  const t = useTranslations();
 
   useEffect(() => {
     // Detect device type
@@ -97,7 +99,7 @@ export default function PWAInstall() {
       }
     } else if (isAndroid) {
       // Fallback for Android without prompt
-      alert('홈 화면에 추가하려면:\n1. 브라우저 메뉴(⋮)를 탭하세요\n2. "홈 화면에 추가" 또는 "앱 설치"를 선택하세요');
+      alert(t.install.androidFallback);
     }
   };
 
@@ -128,23 +130,23 @@ export default function PWAInstall() {
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-                PDF Wizard 설치하기
+                {t.install.title}
               </h3>
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                홈 화면에 추가하여 앱처럼 사용하세요. 오프라인에서도 작동합니다!
+                {t.install.description}
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={handleInstallClick}
                   className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
                 >
-                  {isIOS ? '설치 방법 보기' : '지금 설치'}
+                  {isIOS ? t.install.installMethod : t.install.installNow}
                 </button>
                 <button
                   onClick={handleDismiss}
                   className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-xs font-medium hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                 >
-                  나중에
+                  {t.install.notNow}
                 </button>
               </div>
             </div>
@@ -157,7 +159,7 @@ export default function PWAInstall() {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl max-w-sm w-full p-6 animate-fade-in">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-              iOS에서 설치하기
+              {t.install.iosTitle}
             </h2>
             <div className="space-y-3 mb-6">
               <div className="flex items-start gap-3">
@@ -165,14 +167,13 @@ export default function PWAInstall() {
                   1
                 </span>
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                  Safari 브라우저 하단의 공유 버튼
+                  {t.install.iosStep1}
                   <span className="inline-flex items-center justify-center w-5 h-5 ml-1 align-middle">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M10 2a1 1 0 011 1v5.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 8.586V3a1 1 0 011-1z"/>
                       <path d="M4 9a1 1 0 011 1v6h10v-6a1 1 0 112 0v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a1 1 0 011-1z"/>
                     </svg>
                   </span>
-                  을 탭하세요
                 </p>
               </div>
               <div className="flex items-start gap-3">
@@ -180,7 +181,7 @@ export default function PWAInstall() {
                   2
                 </span>
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                  &ldquo;홈 화면에 추가&rdquo;를 선택하세요
+                  {t.install.iosStep2}
                 </p>
               </div>
               <div className="flex items-start gap-3">
@@ -188,20 +189,20 @@ export default function PWAInstall() {
                   3
                 </span>
                 <p className="text-sm text-gray-700 dark:text-gray-300">
-                  오른쪽 상단의 &ldquo;추가&rdquo;를 탭하세요
+                  {t.install.iosStep3}
                 </p>
               </div>
             </div>
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
               <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                <strong>참고:</strong> Safari 브라우저에서만 설치 가능합니다
+                <strong>Note:</strong> {t.install.iosNote}
               </p>
             </div>
             <button
               onClick={() => setShowIOSInstructions(false)}
               className="w-full py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
-              닫기
+              {t.install.close}
             </button>
           </div>
         </div>

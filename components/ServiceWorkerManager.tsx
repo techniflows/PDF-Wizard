@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from '@/utils/i18n';
 
 export default function ServiceWorkerManager() {
   const [isOnline, setIsOnline] = useState(true);
   const [isInstalled, setIsInstalled] = useState(false);
+  const t = useTranslations();
 
   useEffect(() => {
     // Set initial online status
@@ -57,7 +59,7 @@ export default function ServiceWorkerManager() {
                     // Auto-update in offline mode, ask in online mode
                     if (!navigator.onLine) {
                       newWorker.postMessage({ action: 'skipWaiting' });
-                    } else if (confirm('새로운 업데이트가 있습니다. 페이지를 새로고침하시겠습니까?')) {
+                    } else if (confirm(t.serviceWorker?.updatePrompt || 'New update available. Would you like to refresh the page?')) {
                       window.location.reload();
                     }
                   }

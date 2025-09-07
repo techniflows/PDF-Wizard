@@ -20,6 +20,7 @@ import { PDFDocument } from 'pdf-lib';
 import FileUploader from './FileUploader';
 import FileItem from './FileItem';
 import PDFSettingsModal, { PDFSettings } from './PDFSettingsModal';
+import { useTranslations } from '@/utils/i18n';
 
 
 export interface FileData {
@@ -40,6 +41,7 @@ export default function PDFMerger() {
   const [files, setFiles] = useState<FileData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const t = useTranslations();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -243,7 +245,7 @@ export default function PDFMerger() {
           }
         } catch (fileError) {
           console.error(`Error processing file ${file.name}:`, fileError);
-          alert(`Failed to process ${file.name}. It will be skipped.`);
+          alert(`${t.errors.processingFailed} ${file.name}. It will be skipped.`);
         }
       }
       
@@ -260,7 +262,7 @@ export default function PDFMerger() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
+      alert(t.errors.generationFailed);
     } finally {
       setIsGenerating(false);
     }
@@ -274,13 +276,13 @@ export default function PDFMerger() {
         <>
           <div className="mb-4 flex justify-between items-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {files.length} file{files.length !== 1 ? 's' : ''} ready to merge
+              {files.length} {files.length === 1 ? t.fileList.file : t.fileList.files} {t.fileList.filesReady}
             </p>
             <button
               onClick={handleClearAll}
               className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
             >
-              Clear All
+              {t.fileList.clearAll}
             </button>
           </div>
 
@@ -313,7 +315,7 @@ export default function PDFMerger() {
             disabled={isGenerating}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
           >
-            {isGenerating ? 'Generating PDF...' : 'Download Merged PDF'}
+            {isGenerating ? t.buttons.generating : t.buttons.downloadPdf}
           </button>
         </>
       )}

@@ -16,6 +16,36 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PDF Wizard - Merge, Split & Convert PDFs",
   description: "Powerful PDF tool that works 100% on your device. Merge PDFs and images, split pages, rearrange, and convert - all privately without uploading to any server!",
+  keywords: "PDF merge, PDF split, PDF convert, PDF tool, merge PDFs, split PDF pages, convert images to PDF, PDF editor, offline PDF tool",
+  authors: [{ name: "techniflows", url: "https://www.techniflows.com" }],
+  creator: "techniflows",
+  publisher: "techniflows",
+  robots: "index, follow",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://pdfwizard.dev",
+    title: "PDF Wizard - Merge, Split & Convert PDFs",
+    description: "Powerful PDF tool that works 100% on your device. Merge PDFs and images, split pages, rearrange, and convert - all privately without uploading to any server!",
+    siteName: "PDF Wizard",
+    images: [
+      {
+        url: "/icon-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "PDF Wizard Logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PDF Wizard - Merge, Split & Convert PDFs",
+    description: "Powerful PDF tool that works 100% on your device. Merge PDFs and images, split pages, rearrange, and convert - all privately without uploading to any server!",
+    images: ["/icon-512x512.png"],
+  },
+  alternates: {
+    canonical: "https://pdfwizard.dev",
+  },
 };
 
 export default function RootLayout({
@@ -50,6 +80,37 @@ export default function RootLayout({
         <link rel="shortcut icon" href="/favicon.ico" />
 
         <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover" />
+        
+        {/* Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              "name": "PDF Wizard",
+              "description": "Powerful PDF tool that works 100% on your device. Merge PDFs and images, split pages, rearrange, and convert - all privately without uploading to any server!",
+              "url": "https://pdfwizard.dev",
+              "applicationCategory": "Productivity",
+              "operatingSystem": "Any",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              },
+              "author": {
+                "@type": "Organization",
+                "name": "techniflows",
+                "url": "https://www.techniflows.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "techniflows",
+                "url": "https://www.techniflows.com"
+              }
+            })
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

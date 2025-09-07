@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslations } from '@/utils/i18n';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,6 +12,7 @@ export default function InstallPWA() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const t = useTranslations();
 
   useEffect(() => {
     // Check if app is already installed
@@ -145,23 +147,23 @@ export default function InstallPWA() {
         </div>
         <div className="flex-1">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
-            Install PDF Wizard
+            {t.install.title}
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-            Install our app for offline access and a better experience!
+            {t.install.description}
           </p>
           <div className="flex gap-2">
             <button
               onClick={handleInstallClick}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
             >
-              {deferredPrompt ? 'Install App' : 'Add to Home Screen'}
+              {t.buttons.install}
             </button>
             <button
               onClick={handleDismiss}
               className="px-4 py-2 text-gray-600 dark:text-gray-400 text-sm font-medium hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
             >
-              Not Now
+              {t.buttons.notNow}
             </button>
           </div>
         </div>
