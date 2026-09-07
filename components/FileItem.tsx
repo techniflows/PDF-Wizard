@@ -48,7 +48,7 @@ export default function FileItem({
       style={style}
       className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-6 ${
         isDragging ? 'shadow-lg' : ''
-      } ${isPdfPage ? 'border-l-4 border-l-blue-300 dark:border-l-blue-400' : ''}`}
+      }`}
     >
       {/* Drag handle */}
       <div

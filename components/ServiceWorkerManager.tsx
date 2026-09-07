@@ -26,7 +26,8 @@ export default function ServiceWorkerManager() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    if ('serviceWorker' in navigator) {
+    // next-pwa does not emit /sw.js in development (disable: true), so skip registration there.
+    if ('serviceWorker' in navigator && process.env.NODE_ENV !== 'development') {
       const registerSW = async () => {
         try {
           // Check if already registered first

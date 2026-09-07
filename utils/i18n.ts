@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from 'react';
+
 export type Language = 'ko' | 'en';
 
 export interface Translations {
@@ -39,9 +41,22 @@ export interface Translations {
   };
   buttons: {
     downloadPdf: string;
+    downloadAsImages: string;
     generating: string;
     install: string;
     notNow: string;
+  };
+  imageExport: {
+    title: string;
+    pagesInfo: string;
+    formatLabel: string;
+    pngDescription: string;
+    jpgDescription: string;
+    qualityLabel: string;
+    qualityNames: { low: string; medium: string; high: string };
+    qualityDetails: { low: string; medium: string; high: string };
+    confirm: string;
+    exporting: string;
   };
   install: {
     title: string;
@@ -63,14 +78,21 @@ export interface Translations {
     margin: string;
     pageSizes: {
       fit: string;
+      fitDescription: string;
       a4: string;
+      a4Description: string;
     };
     margins: {
       none: string;
       small: string;
       big: string;
     };
-    confirm: string;
+    compress: string;
+    compressDescription: string;
+    quality: string;
+    qualityLow: string;
+    qualityHigh: string;
+    generate: string;
     cancel: string;
   };
   errors: {
@@ -126,9 +148,26 @@ const translations: Record<Language, Translations> = {
     },
     buttons: {
       downloadPdf: 'PDF 다운로드',
+      downloadAsImages: '이미지로 다운로드',
       generating: 'PDF 생성 중...',
       install: '앱 설치',
       notNow: '나중에'
+    },
+    imageExport: {
+      title: '이미지로 내보내기',
+      pagesInfo: '{n}페이지가 ZIP 파일로 내보내집니다.',
+      formatLabel: '이미지 형식',
+      pngDescription: '무손실 품질, 큰 파일 크기',
+      jpgDescription: '작은 파일 크기, 약간의 품질 손실',
+      qualityLabel: '품질',
+      qualityNames: { low: '낮음', medium: '보통', high: '높음' },
+      qualityDetails: {
+        low: '72 DPI - 웹용',
+        medium: '150 DPI - 균형 잡힌 품질',
+        high: '300 DPI - 인쇄용'
+      },
+      confirm: '이미지 내보내기',
+      exporting: '내보내는 중...'
     },
     install: {
       title: 'PDF 마법사 설치하기',
@@ -150,14 +189,21 @@ const translations: Record<Language, Translations> = {
       margin: '여백',
       pageSizes: {
         fit: '이미지에 맞춤',
-        a4: 'A4'
+        fitDescription: '이미지와 동일한 크기',
+        a4: 'A4',
+        a4Description: '표준 A4 페이지 크기'
       },
       margins: {
-        none: '없음',
+        none: '여백 없음',
         small: '작게 (0.5인치)',
         big: '크게 (1인치)'
       },
-      confirm: '확인',
+      compress: '이미지 압축',
+      compressDescription: '이미지를 JPEG로 재인코딩하여 용량을 줄입니다',
+      quality: '압축 품질',
+      qualityLow: '용량 작게',
+      qualityHigh: '품질 높게',
+      generate: 'PDF 생성',
       cancel: '취소'
     },
     errors: {
@@ -169,7 +215,7 @@ const translations: Record<Language, Translations> = {
       updatePrompt: '새 버전이 사용 가능합니다. 업데이트하시겠습니까?'
     },
     footer: {
-      copyright: '© 2025 테크니플로우즈(techniflows)'
+      copyright: '© 2026 주식회사 테크니플로우즈'
     }
   },
   en: {
@@ -211,9 +257,26 @@ const translations: Record<Language, Translations> = {
     },
     buttons: {
       downloadPdf: 'Download Merged PDF',
+      downloadAsImages: 'Download as Images',
       generating: 'Generating PDF...',
       install: 'Install App',
       notNow: 'Not Now'
+    },
+    imageExport: {
+      title: 'Export as Images',
+      pagesInfo: '{n} pages will be exported as a ZIP file.',
+      formatLabel: 'Image Format',
+      pngDescription: 'Lossless quality, larger file size',
+      jpgDescription: 'Smaller file size, slight quality loss',
+      qualityLabel: 'Quality',
+      qualityNames: { low: 'Low', medium: 'Medium', high: 'High' },
+      qualityDetails: {
+        low: '72 DPI - Web',
+        medium: '150 DPI - Balanced',
+        high: '300 DPI - Print'
+      },
+      confirm: 'Export Images',
+      exporting: 'Exporting...'
     },
     install: {
       title: 'Install PDF Wizard',
@@ -235,14 +298,21 @@ const translations: Record<Language, Translations> = {
       margin: 'Margin',
       pageSizes: {
         fit: 'Fit to Image',
-        a4: 'A4'
+        fitDescription: 'Same size as the image',
+        a4: 'A4',
+        a4Description: 'Standard A4 page size'
       },
       margins: {
-        none: 'None',
+        none: 'No Margin',
         small: 'Small (0.5 inch)',
         big: 'Big (1 inch)'
       },
-      confirm: 'Confirm',
+      compress: 'Compress Images',
+      compressDescription: 'Re-encode images as JPEG to reduce file size',
+      quality: 'Compression Quality',
+      qualityLow: 'Smaller size',
+      qualityHigh: 'Higher quality',
+      generate: 'Generate PDF',
       cancel: 'Cancel'
     },
     errors: {
@@ -254,7 +324,7 @@ const translations: Record<Language, Translations> = {
       updatePrompt: 'New update available. Would you like to refresh the page?'
     },
     footer: {
-      copyright: '© 2025 techniflows'
+      copyright: '© 2026 techniflows Inc.'
     }
   }
 };
@@ -282,7 +352,17 @@ export function getTranslations(language?: Language): Translations {
   return translations[lang];
 }
 
+const noopSubscribe = () => () => {};
+const getServerLanguage = (): Language => 'en';
+
+// Returns 'en' during SSR and hydration (matching the server HTML), then the
+// browser-detected language once hydrated, avoiding hydration mismatches.
+export function useLanguage(): Language {
+  return useSyncExternalStore(noopSubscribe, detectLanguage, getServerLanguage);
+}
+
 // Hook for React components
 export function useTranslations(language?: Language) {
-  return getTranslations(language);
+  const detected = useLanguage();
+  return getTranslations(language || detected);
 }

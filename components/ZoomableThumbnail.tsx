@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 
 interface ZoomableThumbnailProps {
@@ -10,81 +10,65 @@ interface ZoomableThumbnailProps {
 }
 
 export default function ZoomableThumbnail({ src, alt, className = '' }: ZoomableThumbnailProps) {
-  const [isZoomed, setIsZoomed] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
 
-  const handleMouseEnter = useCallback(() => {
-    // Clear any pending hide timeout
-    if (hideTimeoutRef.current) {
-      clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
+  const open = useCallback(() => setIsOpen(true), []);
+  const close = useCallback(() => setIsOpen(false), []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsVisible(false);
+      return;
     }
-    setIsZoomed(true);
-  }, []);
+    const id = requestAnimationFrame(() => setIsVisible(true));
+    return () => cancelAnimationFrame(id);
+  }, [isOpen]);
 
-  const handleMouseLeave = useCallback(() => {
-    // Add small delay to prevent flickering when moving between thumbnail and modal
-    hideTimeoutRef.current = setTimeout(() => {
-      setIsZoomed(false);
-    }, 100);
-  }, []);
-
-  const handleOverlayMouseMove = useCallback((e: React.MouseEvent) => {
-    // Get the inner image container
-    const imageContainer = e.currentTarget.querySelector('.image-container') as HTMLElement;
-    if (!imageContainer) return;
-    
-    const rect = imageContainer.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    // If mouse is outside the image container, close modal
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      if (hideTimeoutRef.current) {
-        clearTimeout(hideTimeoutRef.current);
-        hideTimeoutRef.current = null;
-      }
-      setIsZoomed(false);
-    }
-  }, []);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    setIsZoomed(true);
-  }, []);
-
-  const handleClickOutside = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      setIsZoomed(false);
-    }
-  }, []);
-
-  const handleCloseZoom = useCallback(() => {
-    if (hideTimeoutRef.current) {
-      clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
-    }
-    setIsZoomed(false);
-  }, []);
-
-  // Cleanup timeout on unmount
-  React.useEffect(() => {
-    return () => {
-      if (hideTimeoutRef.current) {
-        clearTimeout(hideTimeoutRef.current);
-      }
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
     };
-  }, []);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, close]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target === e.currentTarget) close();
+    },
+    [close]
+  );
+
+  const handleTriggerKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        open();
+      }
+    },
+    [open]
+  );
 
   return (
     <>
       <div
-        ref={containerRef}
         className={`relative overflow-hidden cursor-zoom-in ${className}`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleTouchStart}
+        onClick={open}
+        onKeyDown={handleTriggerKeyDown}
+        role="button"
+        tabIndex={0}
+        aria-label="Open zoomed preview"
       >
         <Image
           src={src}
@@ -95,36 +79,34 @@ export default function ZoomableThumbnail({ src, alt, className = '' }: Zoomable
         />
       </div>
 
-      {/* Zoomed overlay */}
-      {isZoomed && (
+      {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={handleClickOutside}
-          onTouchEnd={handleCloseZoom}
-          onMouseMove={handleOverlayMouseMove}
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-150 ease-out ${
+            isVisible ? 'opacity-100' : 'opacity-0'
+          }`}
+          onClick={handleBackdropClick}
         >
-          <div 
-            className="relative flex items-center justify-center image-container"
-            onMouseEnter={handleMouseEnter}
+          <div
+            className={`relative flex items-center justify-center transition-transform duration-150 ease-out ${
+              isVisible ? 'scale-100' : 'scale-95'
+            }`}
           >
             <Image
               src={src}
               alt={alt}
               width={1200}
               height={800}
-              className="object-contain shadow-2xl rounded-lg border-4 border-white"
+              className="object-contain shadow-2xl rounded-lg bg-white"
               style={{
-                width: '80vw',
-                height: '80vh',
-                maxWidth: '80vw',
+                width: '55vw',
+                height: '70vh',
+                maxWidth: '720px',
                 maxHeight: '80vh',
-                opacity: 1,
-                backgroundColor: 'white',
               }}
             />
             <button
-              className="absolute top-4 right-4 text-gray-600 bg-white hover:bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center transition-colors duration-200 shadow-lg border-2 border-gray-300"
-              onClick={handleCloseZoom}
+              className="absolute top-3 right-3 text-gray-700 bg-white hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition-colors duration-150 shadow-lg z-10"
+              onClick={close}
               aria-label="Close zoom"
             >
               <svg

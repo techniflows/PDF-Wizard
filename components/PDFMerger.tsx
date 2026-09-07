@@ -20,7 +20,21 @@ import { PDFDocument } from 'pdf-lib';
 import FileUploader from './FileUploader';
 import FileItem from './FileItem';
 import PDFSettingsModal, { PDFSettings } from './PDFSettingsModal';
+import ImageExportModal, {
+  ImageExportSettings,
+  dpiForQuality,
+} from './ImageExportModal';
+import {
+  compressImageForEmbed,
+  compressPdfImagesOnly,
+  exportFilesAsImageZip,
+  rasterizePdfPage,
+} from '@/utils/pdfUtils';
 import { useTranslations } from '@/utils/i18n';
+
+type PdfCompressionMode =
+  | { kind: 'imageOnly'; doc: PDFDocument }
+  | { kind: 'rasterized' };
 
 
 export interface FileData {
@@ -41,6 +55,8 @@ export default function PDFMerger() {
   const [files, setFiles] = useState<FileData[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showImageExportModal, setShowImageExportModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const t = useTranslations();
 
   const sensors = useSensors(
@@ -127,19 +143,83 @@ export default function PDFMerger() {
     generatePDF(settings);
   };
 
+  const handleOpenImageExport = () => {
+    setShowImageExportModal(true);
+  };
+
+  const handleImageExportConfirm = async (settings: ImageExportSettings) => {
+    if (files.length === 0) return;
+    setIsExporting(true);
+    try {
+      const zipBlob = await exportFilesAsImageZip(files, {
+        format: settings.format,
+        dpi: dpiForQuality(settings.quality),
+      });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pdf-wizard-images-${new Date().getTime()}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setShowImageExportModal(false);
+    } catch (error) {
+      console.error('Error exporting images:', error);
+      alert(t.errors.generationFailed);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const generatePDF = async (settings?: PDFSettings) => {
     if (files.length === 0) return;
-    
+
     setIsGenerating(true);
     try {
+      // Fast path: user is just compressing one PDF (all pages from the same
+      // source, in original order) with compression on. Hand back the
+      // surgical compressed bytes directly. pdf-lib's copyPages + save round-
+      // trip would otherwise re-serialize embedded fonts and undo the work —
+      // that round-trip is the actual source of the "text top cut off"
+      // symptom we've been chasing, since our compressPdfImagesOnly output
+      // is already a complete, valid PDF.
+      const isSinglePdfInOrder =
+        settings?.compress === true &&
+        files[0]?.blob &&
+        files.every(f => f.type === 'application/pdf') &&
+        new Set(files.map(f => f.pdfGroupId)).size === 1 &&
+        files.every((f, i) => f.pageNumber === i + 1);
+
+      if (isSinglePdfInOrder) {
+        const sourceBytes = await files[0].blob!.arrayBuffer();
+        const result = await compressPdfImagesOnly(sourceBytes, {
+          quality: settings!.quality,
+        });
+        const outBytes =
+          result.imagesReplaced > 0 ? result.bytes : new Uint8Array(sourceBytes);
+        const blob = new Blob([new Uint8Array(outBytes)], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `merged-pdf-${new Date().getTime()}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
       const pdfDoc = await PDFDocument.create();
-      
+      // For each source PDF (keyed by pdfGroupId), decide once whether
+      // image-only recompression yielded any savings. If it didn't (e.g. the
+      // PDF uses image filters/colorspaces we don't handle), fall back to
+      // per-page rasterization so the slider still has effect — at the cost
+      // of text selectability for that PDF only.
+      const pdfModeCache = new Map<string, PdfCompressionMode>();
+
       for (const file of files) {
         try {
           if (file.type === 'application/pdf') {
             // Handle PDF pages - always generate fresh ArrayBuffer from blob
             let existingPdfBytes: ArrayBuffer;
-            
+
             if (file.blob) {
               // Generate fresh ArrayBuffer from blob to avoid detachment issues
               existingPdfBytes = await file.blob.arrayBuffer();
@@ -149,22 +229,70 @@ export default function PDFMerger() {
               if (!response.ok) throw new Error('Failed to fetch PDF');
               existingPdfBytes = await response.arrayBuffer();
             }
-            
-            const existingPdf = await PDFDocument.load(existingPdfBytes);
-            
-            // If pageNumber is specified, copy only that page
-            if (file.pageNumber !== undefined) {
-              const [page] = await pdfDoc.copyPages(existingPdf, [file.pageNumber - 1]);
-              pdfDoc.addPage(page);
+
+            if (settings?.compress) {
+              const cacheKey = file.pdfGroupId ?? file.id;
+              let mode = pdfModeCache.get(cacheKey);
+              if (!mode) {
+                const result = await compressPdfImagesOnly(existingPdfBytes, {
+                  quality: settings.quality,
+                });
+                if (result.imagesReplaced > 0) {
+                  const compressedBuffer = result.bytes.buffer.slice(
+                    result.bytes.byteOffset,
+                    result.bytes.byteOffset + result.bytes.byteLength
+                  ) as ArrayBuffer;
+                  const doc = await PDFDocument.load(compressedBuffer);
+                  mode = { kind: 'imageOnly', doc };
+                } else {
+                  // Image-only compression couldn't touch this PDF (unsupported
+                  // filters/colorspaces). Fall back to rasterization so the
+                  // slider has actual effect.
+                  mode = { kind: 'rasterized' };
+                }
+                pdfModeCache.set(cacheKey, mode);
+              }
+
+              if (mode.kind === 'imageOnly') {
+                if (file.pageNumber !== undefined) {
+                  const [page] = await pdfDoc.copyPages(mode.doc, [file.pageNumber - 1]);
+                  pdfDoc.addPage(page);
+                } else {
+                  const pages = await pdfDoc.copyPages(mode.doc, mode.doc.getPageIndices());
+                  pages.forEach(p => pdfDoc.addPage(p));
+                }
+              } else {
+                const indices: number[] = file.pageNumber !== undefined
+                  ? [file.pageNumber - 1]
+                  : Array.from(
+                      { length: (await PDFDocument.load(existingPdfBytes)).getPageCount() },
+                      (_, i) => i
+                    );
+                for (const idx of indices) {
+                  const { jpegBytes, widthPt, heightPt } = await rasterizePdfPage(
+                    existingPdfBytes,
+                    idx,
+                    { quality: settings.quality }
+                  );
+                  const img = await pdfDoc.embedJpg(jpegBytes);
+                  const newPage = pdfDoc.addPage([widthPt, heightPt]);
+                  newPage.drawImage(img, { x: 0, y: 0, width: widthPt, height: heightPt });
+                }
+              }
             } else {
-              // Copy all pages
-              const pages = await pdfDoc.copyPages(existingPdf, existingPdf.getPageIndices());
-              pages.forEach(page => pdfDoc.addPage(page));
+              const existingPdf = await PDFDocument.load(existingPdfBytes);
+              if (file.pageNumber !== undefined) {
+                const [page] = await pdfDoc.copyPages(existingPdf, [file.pageNumber - 1]);
+                pdfDoc.addPage(page);
+              } else {
+                const pages = await pdfDoc.copyPages(existingPdf, existingPdf.getPageIndices());
+                pages.forEach(page => pdfDoc.addPage(page));
+              }
             }
           } else {
             // Handle images - use stored arrayBuffer or blob
             let imageBytes: ArrayBuffer;
-            
+
             if (file.arrayBuffer) {
               imageBytes = file.arrayBuffer;
             } else if (file.blob) {
@@ -175,25 +303,19 @@ export default function PDFMerger() {
               if (!response.ok) throw new Error('Failed to fetch image');
               imageBytes = await response.arrayBuffer();
             }
-            
-            let image;
-            
-            // Try to embed as PNG first, then fall back to JPG
-            try {
-              if (file.type.includes('png')) {
-                image = await pdfDoc.embedPng(imageBytes);
-              } else {
-                image = await pdfDoc.embedJpg(imageBytes);
-              }
-            } catch (embedError) {
-              console.error(`Failed to embed ${file.name}, trying alternative format`, embedError);
-              // If embedding fails, try the opposite format
-              if (file.type.includes('png')) {
-                image = await pdfDoc.embedJpg(imageBytes);
-              } else {
-                image = await pdfDoc.embedPng(imageBytes);
-              }
-            }
+
+            // Normalize the input through a multi-strategy compressor that
+            // guarantees pdf-lib-compatible bytes (JPEG or PNG). This also
+            // protects against unusual inputs (WebP/AVIF/GIF) which would
+            // otherwise be silently dropped by embedJpg/embedPng.
+            const compressed = await compressImageForEmbed(imageBytes, file.type, {
+              enabled: settings?.compress === true,
+              quality: settings?.quality ?? 90,
+            });
+
+            const image = compressed.format === 'jpeg'
+              ? await pdfDoc.embedJpg(compressed.bytes)
+              : await pdfDoc.embedPng(compressed.bytes);
             
             // Determine page size and margins based on settings
             const pageSize = settings?.pageSize || 'fit';
@@ -310,13 +432,35 @@ export default function PDFMerger() {
             </SortableContext>
           </DndContext>
 
-          <button
-            onClick={handleOpenSettings}
-            disabled={isGenerating}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
-          >
-            {isGenerating ? t.buttons.generating : t.buttons.downloadPdf}
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={handleOpenSettings}
+              disabled={isGenerating || isExporting}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+            >
+              {isGenerating ? t.buttons.generating : t.buttons.downloadPdf}
+            </button>
+            <button
+              onClick={handleOpenImageExport}
+              disabled={isGenerating || isExporting}
+              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 dark:disabled:bg-green-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              {isExporting ? t.imageExport.exporting : t.buttons.downloadAsImages}
+            </button>
+          </div>
         </>
       )}
       
@@ -324,6 +468,14 @@ export default function PDFMerger() {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
         onConfirm={handleSettingsConfirm}
+      />
+
+      <ImageExportModal
+        isOpen={showImageExportModal}
+        pageCount={files.length}
+        isExporting={isExporting}
+        onClose={() => setShowImageExportModal(false)}
+        onConfirm={handleImageExportConfirm}
       />
     </div>
   );

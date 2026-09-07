@@ -84,22 +84,6 @@ module.exports = [
     },
   },
 
-  // 6) PDF worker files
-  {
-    urlPattern: /pdf\.worker\.min\.js$/i,
-    handler: 'CacheFirst',
-    options: {
-      cacheName: 'pdf-worker',
-      expiration: {
-        maxEntries: 5,
-        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-      },
-      cacheableResponse: {
-        statuses: [0, 200],
-      },
-    },
-  },
-
   // 7) Google Fonts
   {
     urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
