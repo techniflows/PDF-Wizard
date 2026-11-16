@@ -1,7 +1,8 @@
 module.exports = [
   // 1) Next.js static assets (JS/CSS/fonts) - Critical for offline functionality
+  // A RegExp route is tested against the full URL, so a path prefix needs a function matcher.
   {
-    urlPattern: /^\/_next\/static\/.*/i,
+    urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/_next/static/'),
     handler: 'CacheFirst',
     options: {
       cacheName: 'next-static-assets',
@@ -14,24 +15,8 @@ module.exports = [
       },
     },
   },
-  
-  // 2) Next.js chunks and app bundles - Essential for app functionality
-  {
-    urlPattern: /^\/_next\/static\/chunks\/.*/i,
-    handler: 'CacheFirst',
-    options: {
-      cacheName: 'next-chunks',
-      expiration: {
-        maxEntries: 100,
-        maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-      },
-      cacheableResponse: {
-        statuses: [0, 200],
-      },
-    },
-  },
 
-  // 3) Navigation requests (page loads) - NetworkFirst with offline fallback
+  // 2) Navigation requests (page loads) - NetworkFirst with offline fallback
   {
     urlPattern: ({ request }) => request.mode === 'navigate',
     handler: 'NetworkFirst',
@@ -48,7 +33,7 @@ module.exports = [
     },
   },
 
-  // 4) Public assets (images, icons, etc.)
+  // 3) Public assets (images, icons, etc.)
   {
     urlPattern: ({ url }) => 
       url.pathname.startsWith('/images/') || 
@@ -68,7 +53,7 @@ module.exports = [
     },
   },
 
-  // 5) WASM files for PDF processing
+  // 4) WASM files for PDF processing
   {
     urlPattern: /\.(?:wasm)$/i,
     handler: 'CacheFirst',
@@ -84,7 +69,7 @@ module.exports = [
     },
   },
 
-  // 6) PDF worker files
+  // 5) PDF worker files
   {
     urlPattern: /pdf\.worker\.min\.js$/i,
     handler: 'CacheFirst',
@@ -100,7 +85,7 @@ module.exports = [
     },
   },
 
-  // 7) Google Fonts
+  // 6) Google Fonts
   {
     urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
     handler: 'CacheFirst',
@@ -116,7 +101,7 @@ module.exports = [
     },
   },
 
-  // 8) CSS files
+  // 7) CSS files
   {
     urlPattern: /\.(?:css)$/i,
     handler: 'StaleWhileRevalidate',
@@ -132,7 +117,7 @@ module.exports = [
     },
   },
 
-  // 9) JavaScript files (catch-all for any missed JS)
+  // 8) JavaScript files (catch-all for any missed JS)
   {
     urlPattern: /\.(?:js)$/i,
     handler: 'StaleWhileRevalidate',
@@ -148,7 +133,7 @@ module.exports = [
     },
   },
 
-  // 10) Manifest and other JSON files
+  // 9) Manifest and other JSON files
   {
     urlPattern: /\.(?:json|xml)$/i,
     handler: 'NetworkFirst',

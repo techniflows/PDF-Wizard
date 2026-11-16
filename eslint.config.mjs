@@ -18,6 +18,8 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "utils/generateIcons.js",
+      "utils/generateOgImages.js",
     ],
   },
 ];
