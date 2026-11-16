@@ -135,6 +135,14 @@ const en = {
     levelHighDesc: 'Smallest file size, lower quality (~40% quality)',
     imageNote: { one: '{count} image will be compressed.', other: '{count} images will be compressed.' },
     pdfNote: { one: '{count} PDF page will be compressed.', other: '{count} PDF pages will be compressed.' },
+    method: 'Method',
+    methodKeepText: 'Keep text (recompress images only)',
+    methodKeepTextDesc: 'Text stays selectable and searchable. Pages without images do not get smaller.',
+    methodFlatten: 'Flatten pages to images',
+    methodFlattenDesc: 'Smallest files for scans, but text can no longer be selected.',
+    reduced: 'Reduced from {from} to {to} ({percent}% smaller).',
+    nothingReduced: 'No images could be made smaller, so the file stays at {to}. For scans, try "{method}".',
+    flattenGrew: 'Flattening made the file larger: {from} became {to}. Try "{method}" instead.',
     compress: 'Compress and download',
     compressing: 'Compressing...',
     compressError: 'Error compressing files.',
@@ -267,6 +275,14 @@ const ko: Translations = {
     levelHighDesc: '가장 작은 파일 크기, 낮은 품질 (~40% 품질)',
     imageNote: { one: '{count}개의 이미지가 압축됩니다.', other: '{count}개의 이미지가 압축됩니다.' },
     pdfNote: { one: '페이지 {count}개를 압축합니다.', other: '페이지 {count}개를 압축합니다.' },
+    method: '압축 방식',
+    methodKeepText: '글자 유지 (이미지만 재압축)',
+    methodKeepTextDesc: '글자를 그대로 선택하고 검색할 수 있습니다. 이미지가 없는 페이지는 용량이 줄지 않습니다.',
+    methodFlatten: '페이지를 이미지로 변환',
+    methodFlattenDesc: '스캔 문서는 용량이 가장 많이 줄지만, 글자를 선택할 수 없게 됩니다.',
+    reduced: '{from}에서 {to}로 줄었습니다 ({percent}% 감소).',
+    nothingReduced: '더 줄일 수 있는 이미지가 없어 용량이 {to} 그대로입니다. 스캔 문서라면 "{method}" 방식을 써 보세요.',
+    flattenGrew: '이미지로 바꾸니 {from}에서 {to}로 오히려 커졌습니다. "{method}" 방식을 써 보세요.',
     compress: '압축 및 다운로드',
     compressing: '압축 중...',
     compressError: '압축 오류가 발생했습니다.',
@@ -298,4 +314,9 @@ export function format(template: string, values: Record<string, string | number>
 
 export function formatCount(forms: { one: string; other: string }, count: number): string {
   return format(count === 1 ? forms.one : forms.other, { count });
+}
+
+export function formatFileSize(bytes: number): string {
+  const megabyte = 1024 * 1024;
+  return bytes < megabyte ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / megabyte).toFixed(1)} MB`;
 }
