@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { downloadBlob, downloadFilesOrZip, type NamedBlob } from '@/utils/download';
-import { format, formatCount } from '@/utils/i18n';
+import { format, formatCount, formatFileSize, type Translations } from '@/utils/i18n';
 import {
   renderPdfPageToImage,
   compressImage,
-  compressPdfPage,
   withPdfDocuments,
   type CompressionLevel,
+  type PdfCompressionMethod,
 } from '@/utils/pdfUtils';
 import CompressModal from './CompressModal';
 import FileUploader from './FileUploader';
@@ -45,6 +45,22 @@ const A4_POINTS: [number, number] = [595.28, 841.89];
 const isPdf = (file: FileData) => file.type === 'application/pdf';
 const isImage = (file: FileData) => file.type.startsWith('image/');
 
+interface CompressOutcome {
+  method: PdfCompressionMethod;
+  before: number;
+  after: number;
+}
+
+function describeOutcome(t: Translations, { method, before, after }: CompressOutcome): string {
+  const sizes = { from: formatFileSize(before), to: formatFileSize(after) };
+  if (after < before) {
+    return format(t.compress.reduced, { ...sizes, percent: Math.round((1 - after / before) * 100) || '<1' });
+  }
+  return method === 'keep-text'
+    ? format(t.compress.nothingReduced, { ...sizes, method: t.compress.methodFlatten })
+    : format(t.compress.flattenGrew, { ...sizes, method: t.compress.methodKeepText });
+}
+
 function revokeBlobUrl(file: FileData) {
   if (file.url.startsWith('blob:')) {
     URL.revokeObjectURL(file.url);
@@ -57,6 +73,7 @@ export default function PDFMerger() {
   const [dialogOpener, setDialogOpener] = useState<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [job, setJob] = useState<Job>(null);
+  const [compressOutcome, setCompressOutcome] = useState<CompressOutcome | null>(null);
   const t = useTranslations();
 
   const includedFiles = files.filter((file) => file.included);
@@ -75,6 +92,7 @@ export default function PDFMerger() {
   const filesRef = useRef(files);
   useEffect(() => {
     filesRef.current = files;
+    setCompressOutcome(null);
   }, [files]);
   useEffect(() => () => filesRef.current.forEach(revokeBlobUrl), []);
 
@@ -154,29 +172,17 @@ export default function PDFMerger() {
     await downloadFilesOrZip(compressed, `compressed-images-${Date.now()}.zip`);
   };
 
-  const compressPdf = async (level: CompressionLevel) => {
-    const pdfFiles = includedPdfPages;
-    if (pdfFiles.length === 0) return;
+  const compressPdf = async (level: CompressionLevel, method: PdfCompressionMethod) => {
+    const pages = includedPdfPages.flatMap(({ blob, pageNumber }) =>
+      blob && pageNumber !== undefined ? [{ blob, pageNumber }] : []
+    );
+    if (pages.length === 0) return;
 
-    const { PDFDocument } = await import('pdf-lib');
-    const pdfDoc = await PDFDocument.create();
-
-    await withPdfDocuments(async (open) => {
-      for (const file of pdfFiles) {
-        if (!file.blob || file.pageNumber === undefined) continue;
-
-        const { blob, width, height } = await compressPdfPage(await open(file.blob), file.pageNumber, level);
-        const image = await pdfDoc.embedJpg(await blob.arrayBuffer());
-
-        // The page keeps its natural size in points so its physical size is
-        // unchanged; the embedded JPEG carries the resolution.
-        const page = pdfDoc.addPage([width, height]);
-        page.drawImage(image, { x: 0, y: 0, width, height });
-      }
-    });
-
-    const pdfBytes = await pdfDoc.save();
-    downloadBlob(new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }), `compressed-pdf-${Date.now()}.pdf`);
+    setCompressOutcome(null);
+    const { compressPdfPages } = await import('@/utils/pdfCompression');
+    const { bytes, originalSize } = await compressPdfPages(pages, level, method);
+    downloadBlob(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }), `compressed-pdf-${Date.now()}.pdf`);
+    if (originalSize !== undefined) setCompressOutcome({ method, before: originalSize, after: bytes.length });
   };
 
   const compressFiles = async (compress: (level: CompressionLevel) => Promise<void>, level: CompressionLevel) => {
@@ -378,6 +384,9 @@ export default function PDFMerger() {
               </button>
             )}
           </div>
+          <p role="status" className="mt-2 text-sm text-neutral-600 empty:mt-0 dark:text-neutral-400">
+            {compressOutcome && describeOutcome(t, compressOutcome)}
+          </p>
           {noneIncluded && (
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{t.buttons.noneIncluded}</p>
           )}
@@ -404,7 +413,7 @@ export default function PDFMerger() {
         isOpen={dialog === 'compress-image' || dialog === 'compress-pdf'}
         onClose={closeDialog}
         opener={dialogOpener}
-        onConfirm={(level) => compressFiles(compressTarget.run, level)}
+        onConfirm={(level, method) => compressFiles((chosen) => compressTarget.run(chosen, method), level)}
         compressType={compressTarget.type}
         fileCount={compressTarget.count}
         isCompressing={job === 'compress'}

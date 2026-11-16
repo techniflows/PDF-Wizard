@@ -1,4 +1,5 @@
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import type { ImageRecompression } from './pdfImageCompression';
 
 export const loadPdfJs = async () => {
   if (typeof window === 'undefined') return null;
@@ -72,7 +73,7 @@ const renderPage = async (page: PDFPageProxy, scale: number, background?: string
   return canvas;
 };
 
-const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> =>
+export const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> =>
   new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Failed to encode canvas'))), type, quality);
   });
@@ -168,6 +169,21 @@ const getCompressionScale = (level: CompressionLevel): number => {
     default: return 0.75;
   }
 };
+
+export type PdfCompressionMethod = 'keep-text' | 'flatten';
+
+// Long-edge caps for images embedded in a PDF, in pixels. Every cap has to stay
+// at or under 4096 so the canvas an image is redrawn on fits MAX_CANVAS_PIXELS.
+const MAX_IMAGE_LONG_EDGE: Record<CompressionLevel, number> = {
+  low: 3200,
+  medium: 2500,
+  high: 1800,
+};
+
+export const getImageRecompression = (level: CompressionLevel): ImageRecompression => ({
+  jpegQuality: getCompressionQuality(level),
+  maxLongEdge: MAX_IMAGE_LONG_EDGE[level],
+});
 
 export const compressImage = async (
   imageBlob: Blob,
