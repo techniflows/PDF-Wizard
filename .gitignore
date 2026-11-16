@@ -18,6 +18,8 @@
 # misc
 .DS_Store
 *.pem
+.claude/
+.serena/
 
 # debug
 npm-debug.log*
@@ -35,10 +37,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# next-pwa build outputs
-/public/sw.js
-/public/workbox-*.js
-/public/fallback-*.js
+# next-pwa generated service worker artifacts (do NOT commit — regenerated each build)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/fallback-*.js
 
 # local agent tooling
 /.omc/
