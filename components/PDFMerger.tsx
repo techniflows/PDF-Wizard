@@ -1,184 +1,251 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { downloadBlob, downloadFilesOrZip, type NamedBlob } from '@/utils/download';
+import { format, formatCount } from '@/utils/i18n';
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { PDFDocument } from 'pdf-lib';
+  renderPdfPageToImage,
+  compressImage,
+  compressPdfPage,
+  withPdfDocuments,
+  type CompressionLevel,
+} from '@/utils/pdfUtils';
+import CompressModal from './CompressModal';
 import FileUploader from './FileUploader';
-import FileItem from './FileItem';
-import PDFSettingsModal, { PDFSettings } from './PDFSettingsModal';
-import { useTranslations } from '@/utils/i18n';
+import ImageExportModal, { type ImageExportSettings } from './ImageExportModal';
+import { useTranslations } from './LanguageProvider';
+import PDFSettingsModal, { type PDFSettings } from './PDFSettingsModal';
+import { buttonPrimary, buttonSecondary, textButton } from './styles';
 
+// The list pulls in dnd-kit, which nobody needs before the first file is added.
+const FileList = dynamic(() => import('./FileList'), { ssr: false });
 
 export interface FileData {
   id: string;
   name: string;
   type: string;
   url: string;
-  blob?: Blob;  // Store the actual blob
-  arrayBuffer?: ArrayBuffer;  // Store array buffer for reuse
+  blob?: Blob;
+  arrayBuffer?: ArrayBuffer;
   pageNumber?: number;
   totalPages?: number;
-  pdfGroupId?: string;  // Group ID for PDF pages from same file
-  originalFileName?: string;  // Original PDF file name for grouping
-  thumbnailUrl?: string;  // Thumbnail URL for PDF pages
+  pdfGroupId?: string;
+  originalFileName?: string;
+  thumbnailUrl?: string;
+  included: boolean;
+}
+
+type Dialog = 'settings' | 'image-export' | 'compress-image' | 'compress-pdf' | null;
+type Job = 'pdf' | 'image-export' | 'compress' | null;
+
+const MARGIN_POINTS = { none: 0, small: 36, big: 72 };
+const A4_POINTS: [number, number] = [595.28, 841.89];
+
+const isPdf = (file: FileData) => file.type === 'application/pdf';
+const isImage = (file: FileData) => file.type.startsWith('image/');
+
+function revokeBlobUrl(file: FileData) {
+  if (file.url.startsWith('blob:')) {
+    URL.revokeObjectURL(file.url);
+  }
 }
 
 export default function PDFMerger() {
   const [files, setFiles] = useState<FileData[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [dialogOpener, setDialogOpener] = useState<HTMLElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [job, setJob] = useState<Job>(null);
   const t = useTranslations();
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // Cleanup blob URLs when component unmounts
-  useEffect(() => {
-    return () => {
-      files.forEach(file => {
-        if (file.url.startsWith('blob:')) {
-          URL.revokeObjectURL(file.url);
-        }
-      });
-    };
-  }, [files]);
-
-  const handleDragStart = () => {
-    // Prevent page scroll during drag on mobile
-    document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
+  const includedFiles = files.filter((file) => file.included);
+  const includedPdfPages = includedFiles.filter(isPdf);
+  const includedImages = includedFiles.filter(isImage);
+  const noneIncluded = includedFiles.length === 0;
+  // With everything set aside the buttons stay visible (disabled), so they follow the whole list.
+  const actionFiles = noneIncluded ? files : includedFiles;
+  const isBusy = job !== null;
+  const closeDialog = () => setDialog(null);
+  const openDialog = (next: Dialog) => (event: React.MouseEvent<HTMLElement>) => {
+    setDialogOpener(event.currentTarget);
+    setDialog(next);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    // Re-enable page scroll after drag
-    document.body.style.overflow = '';
-    document.body.style.touchAction = '';
-    
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      setFiles((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+  const filesRef = useRef(files);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+  useEffect(() => () => filesRef.current.forEach(revokeBlobUrl), []);
+
+  const handleClearAll = () => {
+    files.forEach(revokeBlobUrl);
+    setFiles([]);
+    // The button unmounts with the list, which would drop focus to <body>.
+    fileInputRef.current?.focus();
+  };
+
+  const invertIncluded = () => {
+    setFiles((items) => items.map((item) => ({ ...item, included: !item.included })));
+  };
+
+  const includeAll = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // This button unmounts once nothing is excluded, so focus moves to a neighbour first.
+    const neighbour = event.currentTarget.previousElementSibling ?? event.currentTarget.nextElementSibling;
+    if (neighbour instanceof HTMLElement) neighbour.focus();
+    setFiles((items) => items.map((item) => ({ ...item, included: true })));
+  };
+
+  const exportAsImages = async (settings: ImageExportSettings) => {
+    const pdfFiles = includedPdfPages;
+    if (pdfFiles.length === 0) return;
+
+    setJob('image-export');
+    try {
+      const extension = settings.format === 'png' ? 'png' : 'jpg';
+      const images: NamedBlob[] = [];
+
+      await withPdfDocuments(async (open) => {
+        for (let i = 0; i < pdfFiles.length; i++) {
+          const file = pdfFiles[i];
+          if (!file.blob || file.pageNumber === undefined) continue;
+
+          const blob = await renderPdfPageToImage(await open(file.blob), file.pageNumber, settings);
+          images.push({ name: `page-${String(i + 1).padStart(3, '0')}.${extension}`, blob });
+        }
       });
+
+      if (images.length === 0) {
+        throw new Error('No images to export');
+      }
+
+      await downloadFilesOrZip(images, `pdf-images-${Date.now()}.zip`);
+      closeDialog();
+    } catch (error) {
+      console.error('Error exporting images:', error);
+      alert(t.imageExport.exportError);
+    } finally {
+      setJob(null);
     }
   };
 
-  const handleDragCancel = () => {
-    // Re-enable page scroll if drag is cancelled
-    document.body.style.overflow = '';
-    document.body.style.touchAction = '';
-  };
+  const compressImages = async (level: CompressionLevel) => {
+    const imageFiles = includedImages;
+    if (imageFiles.length === 0) return;
 
-  const handleFilesAdded = useCallback((newFiles: FileData[]) => {
-    setFiles(prev => [...prev, ...newFiles]);
-  }, []);
-
-  const handleRemoveFile = useCallback((id: string) => {
-    setFiles(prev => {
-      const fileToRemove = prev.find(f => f.id === id);
-      if (fileToRemove && fileToRemove.url.startsWith('blob:')) {
-        URL.revokeObjectURL(fileToRemove.url);
+    const compressed: NamedBlob[] = [];
+    for (const file of imageFiles) {
+      let blob: Blob;
+      if (file.blob) {
+        blob = file.blob;
+      } else if (file.arrayBuffer) {
+        blob = new Blob([file.arrayBuffer], { type: file.type });
+      } else {
+        const response = await fetch(file.url);
+        blob = await response.blob();
       }
-      return prev.filter(f => f.id !== id);
-    });
-  }, []);
 
-  const handleClearAll = useCallback(() => {
-    files.forEach(file => {
-      if (file.url.startsWith('blob:')) {
-        URL.revokeObjectURL(file.url);
+      compressed.push({
+        name: `${file.name.replace(/\.[^/.]+$/, '')}-compressed.jpg`,
+        blob: await compressImage(blob, level),
+      });
+    }
+
+    await downloadFilesOrZip(compressed, `compressed-images-${Date.now()}.zip`);
+  };
+
+  const compressPdf = async (level: CompressionLevel) => {
+    const pdfFiles = includedPdfPages;
+    if (pdfFiles.length === 0) return;
+
+    const { PDFDocument } = await import('pdf-lib');
+    const pdfDoc = await PDFDocument.create();
+
+    await withPdfDocuments(async (open) => {
+      for (const file of pdfFiles) {
+        if (!file.blob || file.pageNumber === undefined) continue;
+
+        const { blob, width, height } = await compressPdfPage(await open(file.blob), file.pageNumber, level);
+        const image = await pdfDoc.embedJpg(await blob.arrayBuffer());
+
+        // The page keeps its natural size in points so its physical size is
+        // unchanged; the embedded JPEG carries the resolution.
+        const page = pdfDoc.addPage([width, height]);
+        page.drawImage(image, { x: 0, y: 0, width, height });
       }
     });
-    setFiles([]);
-  }, [files]);
 
-  const handleUngroup = useCallback((pdfGroupId: string, fileId: string) => {
-    setFiles(prev => prev.filter(f => f.id !== fileId));
-  }, []);
-
-  const handleOpenSettings = () => {
-    setShowSettingsModal(true);
+    const pdfBytes = await pdfDoc.save();
+    downloadBlob(new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }), `compressed-pdf-${Date.now()}.pdf`);
   };
 
-  const handleSettingsConfirm = (settings: PDFSettings) => {
-    generatePDF(settings);
-  };
-
-  const generatePDF = async (settings?: PDFSettings) => {
-    if (files.length === 0) return;
-    
-    setIsGenerating(true);
+  const compressFiles = async (compress: (level: CompressionLevel) => Promise<void>, level: CompressionLevel) => {
+    setJob('compress');
     try {
+      await compress(level);
+      closeDialog();
+    } catch (error) {
+      console.error('Error compressing files:', error);
+      alert(t.compress.compressError);
+    } finally {
+      setJob(null);
+    }
+  };
+
+  const generatePDF = async (settings: PDFSettings) => {
+    if (noneIncluded) return;
+
+    setJob('pdf');
+    try {
+      const { PDFDocument } = await import('pdf-lib');
       const pdfDoc = await PDFDocument.create();
-      
-      for (const file of files) {
+
+      // Every page of an upload shares one blob, so each source is parsed once.
+      const sources = new Map<Blob, ReturnType<typeof PDFDocument.load>>();
+      const loadSource = (blob: Blob) => {
+        let source = sources.get(blob);
+        if (!source) {
+          source = blob.arrayBuffer().then((bytes) => PDFDocument.load(bytes));
+          sources.set(blob, source);
+        }
+        return source;
+      };
+
+      for (const file of includedFiles) {
         try {
-          if (file.type === 'application/pdf') {
-            // Handle PDF pages - always generate fresh ArrayBuffer from blob
-            let existingPdfBytes: ArrayBuffer;
-            
+          if (isPdf(file)) {
+            let existingPdf;
+
             if (file.blob) {
-              // Generate fresh ArrayBuffer from blob to avoid detachment issues
-              existingPdfBytes = await file.blob.arrayBuffer();
+              existingPdf = await loadSource(file.blob);
             } else {
-              // Fallback to fetch if no blob available
               const response = await fetch(file.url);
               if (!response.ok) throw new Error('Failed to fetch PDF');
-              existingPdfBytes = await response.arrayBuffer();
+              existingPdf = await PDFDocument.load(await response.arrayBuffer());
             }
-            
-            const existingPdf = await PDFDocument.load(existingPdfBytes);
-            
-            // If pageNumber is specified, copy only that page
+
             if (file.pageNumber !== undefined) {
               const [page] = await pdfDoc.copyPages(existingPdf, [file.pageNumber - 1]);
               pdfDoc.addPage(page);
             } else {
-              // Copy all pages
               const pages = await pdfDoc.copyPages(existingPdf, existingPdf.getPageIndices());
               pages.forEach(page => pdfDoc.addPage(page));
             }
           } else {
-            // Handle images - use stored arrayBuffer or blob
             let imageBytes: ArrayBuffer;
-            
+
             if (file.arrayBuffer) {
               imageBytes = file.arrayBuffer;
             } else if (file.blob) {
               imageBytes = await file.blob.arrayBuffer();
             } else {
-              // Fallback to fetch (shouldn't happen with updated uploader)
               const response = await fetch(file.url);
               if (!response.ok) throw new Error('Failed to fetch image');
               imageBytes = await response.arrayBuffer();
             }
-            
+
             let image;
-            
-            // Try to embed as PNG first, then fall back to JPG
+
             try {
               if (file.type.includes('png')) {
                 image = await pdfDoc.embedPng(imageBytes);
@@ -187,143 +254,160 @@ export default function PDFMerger() {
               }
             } catch (embedError) {
               console.error(`Failed to embed ${file.name}, trying alternative format`, embedError);
-              // If embedding fails, try the opposite format
               if (file.type.includes('png')) {
                 image = await pdfDoc.embedJpg(imageBytes);
               } else {
                 image = await pdfDoc.embedPng(imageBytes);
               }
             }
-            
-            // Determine page size and margins based on settings
-            const pageSize = settings?.pageSize || 'fit';
-            const marginSetting = settings?.margin || 'none';
-            
-            // Calculate margin values
-            const getMargin = (margin: string) => {
-              switch (margin) {
-                case 'small': return 36; // 0.5 inch
-                case 'big': return 72;   // 1 inch
-                default: return 0;       // none
-              }
-            };
-            
-            const margin = getMargin(marginSetting);
-            
-            let page;
-            if (pageSize === 'a4') {
-              // A4 size: 595.28 x 841.89 points
-              page = pdfDoc.addPage([595.28, 841.89]);
-            } else {
-              // Fit to image size
-              page = pdfDoc.addPage([image.width + (margin * 2), image.height + (margin * 2)]);
-            }
-            
+
+            const margin = MARGIN_POINTS[settings.margin];
+            const page = settings.pageSize === 'a4'
+              ? pdfDoc.addPage(A4_POINTS)
+              : pdfDoc.addPage([image.width + (margin * 2), image.height + (margin * 2)]);
+
             const { width, height } = page.getSize();
-            const imgWidth = image.width;
-            const imgHeight = image.height;
-            
-            // Calculate available space considering margins
             const availableWidth = width - (margin * 2);
             const availableHeight = height - (margin * 2);
-            
-            // Calculate scaling to fit the image within the available space
-            const scale = Math.min(availableWidth / imgWidth, availableHeight / imgHeight, 1);
-            const scaledWidth = imgWidth * scale;
-            const scaledHeight = imgHeight * scale;
-            
-            // Center the image within the available space
-            const x = margin + (availableWidth - scaledWidth) / 2;
-            const y = margin + (availableHeight - scaledHeight) / 2;
-            
+
+            const scale = Math.min(availableWidth / image.width, availableHeight / image.height, 1);
+            const scaledWidth = image.width * scale;
+            const scaledHeight = image.height * scale;
+
             page.drawImage(image, {
-              x,
-              y,
+              x: margin + (availableWidth - scaledWidth) / 2,
+              y: margin + (availableHeight - scaledHeight) / 2,
               width: scaledWidth,
               height: scaledHeight,
             });
           }
         } catch (fileError) {
           console.error(`Error processing file ${file.name}:`, fileError);
-          alert(`${t.errors.processingFailed} ${file.name}. It will be skipped.`);
+          alert(format(t.errors.fileSkipped, { name: file.name }));
         }
       }
-      
-      // Generate the PDF bytes
+
       const pdfBytes = await pdfDoc.save();
-      
-      // Create a blob and download
-      const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `merged-pdf-${new Date().getTime()}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }), `merged-pdf-${Date.now()}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert(t.errors.generationFailed);
     } finally {
-      setIsGenerating(false);
+      setJob(null);
     }
   };
 
+  const compressTarget = dialog === 'compress-pdf'
+    ? { type: 'pdf' as const, count: includedPdfPages.length, run: compressPdf }
+    : { type: 'image' as const, count: includedImages.length, run: compressImages };
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <FileUploader onFilesAdded={handleFilesAdded} />
-      
+    <div>
+      <FileUploader inputRef={fileInputRef} onFilesAdded={(newFiles) => setFiles((prev) => [...prev, ...newFiles])} />
+
       {files.length > 0 && (
         <>
-          <div className="mb-4 flex justify-between items-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {files.length} {files.length === 1 ? t.fileList.file : t.fileList.files} {t.fileList.filesReady}
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2">
+            <p role="status" className="text-sm text-neutral-600 dark:text-neutral-400">
+              {includedFiles.length === files.length
+                ? formatCount(t.fileList.count, files.length)
+                : format(t.fileList.countIncluded, { included: includedFiles.length, total: files.length })}
             </p>
-            <button
-              onClick={handleClearAll}
-              className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
-            >
-              {t.fileList.clearAll}
-            </button>
+            <div className="-mx-2 flex flex-wrap">
+              {files.length >= 2 && (
+                <button type="button" onClick={invertIncluded} className={textButton}>
+                  {t.fileList.invert}
+                </button>
+              )}
+              {includedFiles.length < files.length && (
+                <button type="button" onClick={includeAll} className={textButton}>
+                  {t.fileList.includeAll}
+                </button>
+              )}
+              <button type="button" onClick={handleClearAll} className={textButton}>
+                {t.fileList.clearAll}
+              </button>
+            </div>
           </div>
 
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-          >
-            <SortableContext
-              items={files.map(f => f.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2 mb-6">
-                {files.map((file) => (
-                  <FileItem
-                    key={file.id}
-                    file={file}
-                    onRemove={handleRemoveFile}
-                    onUngroup={handleUngroup}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <FileList files={files} setFiles={setFiles} />
 
-          <button
-            onClick={handleOpenSettings}
-            disabled={isGenerating}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+          {/* Focusable so a closing dialog has somewhere to put focus while its opener is disabled. */}
+          <div
+            role="group"
+            aria-label={t.buttons.groupLabel}
+            tabIndex={-1}
+            className="flex flex-col gap-2 outline-none sm:flex-row sm:flex-wrap"
           >
-            {isGenerating ? t.buttons.generating : t.buttons.downloadPdf}
-          </button>
+            <button
+              type="button"
+              onClick={openDialog('settings')}
+              disabled={isBusy || noneIncluded}
+              className={buttonPrimary}
+            >
+              {job === 'pdf' ? t.buttons.generating : t.buttons.downloadPdf}
+            </button>
+            {actionFiles.some(isPdf) && (
+              <button
+                type="button"
+                onClick={openDialog('image-export')}
+                disabled={isBusy || noneIncluded}
+                className={buttonSecondary}
+              >
+                {t.buttons.downloadAsImages}
+              </button>
+            )}
+            {actionFiles.some(isImage) && (
+              <button
+                type="button"
+                onClick={openDialog('compress-image')}
+                disabled={isBusy || noneIncluded}
+                className={buttonSecondary}
+              >
+                {t.buttons.compressImages}
+              </button>
+            )}
+            {actionFiles.some(isPdf) && (
+              <button
+                type="button"
+                onClick={openDialog('compress-pdf')}
+                disabled={isBusy || noneIncluded}
+                className={buttonSecondary}
+              >
+                {t.buttons.compressPdf}
+              </button>
+            )}
+          </div>
+          {noneIncluded && (
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{t.buttons.noneIncluded}</p>
+          )}
         </>
       )}
-      
+
       <PDFSettingsModal
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-        onConfirm={handleSettingsConfirm}
+        isOpen={dialog === 'settings'}
+        onClose={closeDialog}
+        opener={dialogOpener}
+        onConfirm={generatePDF}
+      />
+
+      <ImageExportModal
+        isOpen={dialog === 'image-export'}
+        onClose={closeDialog}
+        opener={dialogOpener}
+        onConfirm={exportAsImages}
+        pageCount={includedPdfPages.length}
+        isExporting={job === 'image-export'}
+      />
+
+      <CompressModal
+        isOpen={dialog === 'compress-image' || dialog === 'compress-pdf'}
+        onClose={closeDialog}
+        opener={dialogOpener}
+        onConfirm={(level) => compressFiles(compressTarget.run, level)}
+        compressType={compressTarget.type}
+        fileCount={compressTarget.count}
+        isCompressing={job === 'compress'}
       />
     </div>
   );

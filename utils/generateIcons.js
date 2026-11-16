@@ -11,7 +11,7 @@ async function generateIcons() {
     <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
       <rect width="512" height="512" fill="#2563eb" rx="50"/>
       <text x="256" y="220" font-family="Arial, sans-serif" font-size="120" font-weight="bold" text-anchor="middle" fill="white">PDF</text>
-      <text x="256" y="340" font-family="Arial, sans-serif" font-size="80" text-anchor="middle" fill="white">🪄</text>
+      <text x="256" y="340" font-family="Arial, sans-serif" font-size="80" text-anchor="middle" fill="white">&#x1FA84;</text>
       <text x="256" y="420" font-family="Arial, sans-serif" font-size="60" text-anchor="middle" fill="white">Wizard</text>
     </svg>
   `;
